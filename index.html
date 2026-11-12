@@ -1,586 +1,734 @@
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PathoAI - Pathology Detection</title>
+# ============================================================
+# PATHOAI - AI BASED PATHOLOGY DETECTION SYSTEM
+# Google Colab | BloodMNIST | PyTorch | Gradio
+# Single Cell Complete Project
+# ============================================================
 
-<style>
-:root {
-  --bg:#f4f7fc;
-  --panel:#ffffff;
-  --primary:#2563eb;
-  --dark:#14213d;
-  --muted:#718096;
-  --border:#e5eaf2;
-  --green:#0d9488;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{
-  font-family:Arial, sans-serif;
-  background:var(--bg);
-  color:var(--dark);
-}
-header{
-  background:#fff;
-  padding:17px 5%;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  border-bottom:1px solid var(--border);
-  position:sticky;top:0;z-index:5;
-}
-.logo{font-size:23px;font-weight:800;color:var(--primary)}
-.logo span{color:var(--green)}
-.status{font-size:12px;color:var(--muted)}
-.layout{display:flex;min-height:calc(100vh - 65px)}
-aside{
-  width:230px;background:#fff;padding:25px 15px;
-  border-right:1px solid var(--border);
-}
-.nav{
-  display:block;padding:13px;margin-bottom:8px;
-  border-radius:9px;color:#536178;text-decoration:none;
-  cursor:pointer;font-size:14px;
-}
-.nav.active,.nav:hover{background:#eaf1ff;color:var(--primary)}
-main{padding:30px;width:100%;max-width:1400px;margin:auto}
-h1{font-size:27px;margin-bottom:8px}
-.sub{color:var(--muted);font-size:14px;margin-bottom:25px}
-.stats{
-  display:grid;grid-template-columns:repeat(3,1fr);
-  gap:17px;margin-bottom:25px;
-}
-.card{
-  background:#fff;padding:20px;border:1px solid var(--border);
-  border-radius:13px;box-shadow:0 3px 15px #1c315008;
-}
-.stat-title{color:var(--muted);font-size:13px}
-.stat-number{font-size:25px;font-weight:bold;margin-top:12px}
-.workspace{
-  display:grid;grid-template-columns:1.15fr .85fr;gap:20px;
-}
-h2{font-size:18px;margin-bottom:17px}
-.upload{
-  border:2px dashed #b9c9e8;border-radius:12px;
-  min-height:230px;display:flex;align-items:center;
-  justify-content:center;text-align:center;padding:20px;
-  background:#f9fbff;cursor:pointer;
-}
-.upload:hover{border-color:var(--primary)}
-.upload-icon{font-size:42px;margin-bottom:12px}
-.upload p{color:var(--muted);font-size:13px;margin-top:8px}
-#preview{
-  max-width:100%;max-height:260px;border-radius:10px;
-  display:none;margin:15px auto;
-}
-input,select,button{
-  font:inherit;
-}
-input[type=file]{display:none}
-.field{margin-top:18px}
-.field label{display:block;font-size:13px;font-weight:bold;margin-bottom:8px}
-.field input,.field select{
-  width:100%;padding:12px;border:1px solid var(--border);
-  border-radius:8px;background:#fff;outline:none;
-}
-.field input:focus,.field select:focus{border-color:var(--primary)}
-.btn{
-  width:100%;padding:13px;border:0;border-radius:9px;
-  background:var(--primary);color:#fff;font-weight:bold;
-  cursor:pointer;margin-top:18px;
-}
-.btn:hover{filter:brightness(.93)}
-.btn:disabled{opacity:.55;cursor:not-allowed}
-.secondary{background:#eaf1ff;color:var(--primary)}
-.result{
-  min-height:220px;background:#f9fbff;border-radius:10px;
-  padding:18px;border:1px solid var(--border);
-}
-.result-icon{font-size:38px;margin-bottom:12px}
-.result h3{margin-bottom:9px}
-.muted{color:var(--muted);font-size:13px;line-height:1.6}
-.confidence{
-  height:9px;background:#e5eaf2;border-radius:20px;
-  overflow:hidden;margin:12px 0;
-}
-#confidenceBar{
-  width:0;height:100%;background:var(--green);
-  transition:width .5s;
-}
-.history{margin-top:23px}
-.history-row{
-  padding:14px 5px;border-bottom:1px solid var(--border);
-  display:flex;justify-content:space-between;gap:10px;
-  font-size:13px;
-}
-.tag{color:var(--green);font-weight:bold}
-footer{text-align:center;padding:25px;color:var(--muted);font-size:12px}
-.notice{
-  background:#fff8e6;border:1px solid #f3dfaa;
-  padding:13px;border-radius:9px;color:#825b12;
-  font-size:12px;line-height:1.6;margin-top:18px;
-}
-.hidden{display:none!important}
-@media(max-width:850px){
- .layout{display:block}
- aside{width:100%;display:flex;overflow-x:auto;padding:10px}
- .nav{white-space:nowrap;margin:0 4px}
- main{padding:18px}
- .workspace{grid-template-columns:1fr}
-}
-@media(max-width:550px){
- .stats{grid-template-columns:1fr}
- h1{font-size:23px}
-}
-</style>
-</head>
+import os
+import sys
+import subprocess
+import warnings
+warnings.filterwarnings("ignore")
 
-<body>
+print("Installing project libraries...")
 
-<header>
-  <div class="logo">Patho<span>AI</span> 🧬</div>
-  <div class="status">● Educational Research Dashboard</div>
-</header>
+subprocess.check_call([
+    sys.executable, "-m", "pip", "install", "-q",
+    "medmnist", "gradio==5.50.0"
+])
 
-<div class="layout">
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+import gradio as gr
+import medmnist
+import tempfile
 
-<aside>
-  <a class="nav active" href="#dashboard">▦ Dashboard</a>
-  <a class="nav" href="#analysis">🧪 Image Analysis</a>
-  <a class="nav" href="#history">📋 History</a>
-  <a class="nav" href="#settings">⚙ Settings</a>
-</aside>
+from datetime import datetime
+from PIL import Image
+from medmnist import INFO
+from torch.utils.data import Dataset, DataLoader
 
-<main id="dashboard">
+# ============================================================
+# 1. PROJECT CONFIGURATION
+# ============================================================
 
-<h1>Pathology Detection Dashboard</h1>
-<p class="sub">Upload a pathology research image and connect your AI analysis server.</p>
+PROJECT_NAME = "PathoAI"
 
-<div class="stats">
-  <div class="card">
-    <div class="stat-title">Total Analyses</div>
-    <div class="stat-number" id="total">0</div>
-  </div>
-  <div class="card">
-    <div class="stat-title">Images Uploaded</div>
-    <div class="stat-number" id="uploaded">0</div>
-  </div>
-  <div class="card">
-    <div class="stat-title">Server Status</div>
-    <div class="stat-number" id="serverStatus" style="font-size:18px;color:#d97706">Not Connected</div>
-  </div>
-</div>
+IMAGE_SIZE = 64
+BATCH_SIZE = 128
+EPOCHS = 5
+LEARNING_RATE = 0.001
 
-<div class="workspace" id="analysis">
+DEVICE = torch.device(
+    "cuda" if torch.cuda.is_available() else "cpu"
+)
 
-<section class="card">
-  <h2>🧫 Upload Pathology Image</h2>
+print("Device:", DEVICE)
+print("Loading BloodMNIST dataset...")
 
-  <label class="upload" for="imageInput">
-    <div>
-      <div class="upload-icon">📁</div>
-      <strong>Click to upload image</strong>
-      <p>JPG, JPEG, PNG or WEBP (maximum 10 MB)</p>
-      <p>Select a research or educational sample.</p>
+# ============================================================
+# 2. AUTOMATIC DATASET DOWNLOAD
+# ============================================================
+
+info = INFO["bloodmnist"]
+DatasetClass = getattr(medmnist, info["python_class"])
+
+train_data = DatasetClass(
+    split="train",
+    download=True,
+    size=IMAGE_SIZE
+)
+
+val_data = DatasetClass(
+    split="val",
+    download=True,
+    size=IMAGE_SIZE
+)
+
+test_data = DatasetClass(
+    split="test",
+    download=True,
+    size=IMAGE_SIZE
+)
+
+CLASS_NAMES = [
+    info["label"][str(i)]
+    for i in range(len(info["label"]))
+]
+
+NUM_CLASSES = len(CLASS_NAMES)
+
+print("Dataset downloaded successfully!")
+print("Training:", len(train_data))
+print("Validation:", len(val_data))
+print("Testing:", len(test_data))
+print("Classes:", CLASS_NAMES)
+
+# ============================================================
+# 3. DATA PREPROCESSING
+# ============================================================
+
+class BloodDataset(Dataset):
+
+    def __init__(self, dataset):
+        self.images = dataset.imgs
+        self.labels = dataset.labels.flatten()
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, index):
+
+        image = self.images[index]
+
+        image = torch.tensor(
+            image.copy(),
+            dtype=torch.float32
+        )
+
+        image = image.permute(2, 0, 1) / 255.0
+
+        label = torch.tensor(
+            int(self.labels[index]),
+            dtype=torch.long
+        )
+
+        return image, label
+
+
+train_loader = DataLoader(
+    BloodDataset(train_data),
+    batch_size=BATCH_SIZE,
+    shuffle=True,
+    num_workers=0
+)
+
+val_loader = DataLoader(
+    BloodDataset(val_data),
+    batch_size=BATCH_SIZE,
+    shuffle=False,
+    num_workers=0
+)
+
+test_loader = DataLoader(
+    BloodDataset(test_data),
+    batch_size=BATCH_SIZE,
+    shuffle=False,
+    num_workers=0
+)
+
+# ============================================================
+# 4. CNN DEEP LEARNING MODEL
+# ============================================================
+
+class PathologyAI(nn.Module):
+
+    def __init__(self):
+
+        super().__init__()
+
+        self.network = nn.Sequential(
+
+            nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+
+            nn.AdaptiveAvgPool2d((1, 1)),
+
+            nn.Flatten(),
+
+            nn.Dropout(0.3),
+
+            nn.Linear(256, NUM_CLASSES)
+        )
+
+    def forward(self, x):
+        return self.network(x)
+
+
+model = PathologyAI().to(DEVICE)
+
+criterion = nn.CrossEntropyLoss()
+
+optimizer = optim.Adam(
+    model.parameters(),
+    lr=LEARNING_RATE
+)
+
+# ============================================================
+# 5. MODEL EVALUATION
+# ============================================================
+
+def evaluate(loader):
+
+    model.eval()
+
+    correct = 0
+    total = 0
+    loss_sum = 0
+
+    with torch.no_grad():
+
+        for images, labels in loader:
+
+            images = images.to(DEVICE)
+            labels = labels.to(DEVICE)
+
+            outputs = model(images)
+
+            loss = criterion(outputs, labels)
+
+            predictions = outputs.argmax(1)
+
+            correct += (
+                predictions == labels
+            ).sum().item()
+
+            total += labels.size(0)
+
+            loss_sum += loss.item() * labels.size(0)
+
+    accuracy = 100 * correct / total
+    average_loss = loss_sum / total
+
+    return accuracy, average_loss
+
+
+# ============================================================
+# 6. AI MODEL TRAINING
+# ============================================================
+
+print("\nStarting PathoAI model training...")
+
+training_history = []
+
+for epoch in range(EPOCHS):
+
+    model.train()
+
+    correct = 0
+    total = 0
+    running_loss = 0
+
+    for images, labels in train_loader:
+
+        images = images.to(DEVICE)
+        labels = labels.to(DEVICE)
+
+        optimizer.zero_grad()
+
+        outputs = model(images)
+
+        loss = criterion(outputs, labels)
+
+        loss.backward()
+
+        optimizer.step()
+
+        running_loss += loss.item()
+
+        predictions = outputs.argmax(1)
+
+        correct += (
+            predictions == labels
+        ).sum().item()
+
+        total += labels.size(0)
+
+    train_accuracy = 100 * correct / total
+
+    val_accuracy, val_loss = evaluate(val_loader)
+
+    training_history.append([
+        f"Epoch {epoch + 1}",
+        f"{train_accuracy:.2f}%",
+        f"{val_accuracy:.2f}%",
+        f"{val_loss:.4f}"
+    ])
+
+    print(
+        f"Epoch {epoch + 1}/{EPOCHS} | "
+        f"Training Accuracy: {train_accuracy:.2f}% | "
+        f"Validation Accuracy: {val_accuracy:.2f}%"
+    )
+
+# ============================================================
+# 7. FINAL TESTING
+# ============================================================
+
+test_accuracy, test_loss = evaluate(test_loader)
+
+print("\nTraining completed!")
+print("Test Accuracy:", round(test_accuracy, 2), "%")
+
+os.makedirs("/content/pathoai", exist_ok=True)
+
+torch.save(
+    model.state_dict(),
+    "/content/pathoai/pathoai_model.pth"
+)
+
+# ============================================================
+# 8. AI IMAGE PREDICTION
+# ============================================================
+
+def predict_image(image, history):
+
+    if image is None:
+
+        return (
+            {},
+            "Please upload a blood cell image.",
+            history,
+            history,
+            None
+        )
+
+    try:
+
+        model.eval()
+
+        image = image.convert("RGB")
+
+        image = image.resize(
+            (IMAGE_SIZE, IMAGE_SIZE)
+        )
+
+        array = np.asarray(
+            image,
+            dtype=np.float32
+        ) / 255.0
+
+        tensor = torch.tensor(array)
+
+        tensor = tensor.permute(2, 0, 1)
+
+        tensor = tensor.unsqueeze(0).to(DEVICE)
+
+        with torch.no_grad():
+
+            outputs = model(tensor)
+
+            probabilities = torch.softmax(
+                outputs,
+                dim=1
+            )[0].cpu().numpy()
+
+        results = {
+            CLASS_NAMES[i]: float(probabilities[i])
+            for i in range(NUM_CLASSES)
+        }
+
+        best_index = int(np.argmax(probabilities))
+
+        predicted_class = CLASS_NAMES[best_index]
+
+        confidence = float(
+            probabilities[best_index] * 100
+        )
+
+        current_time = datetime.now().strftime(
+            "%d-%m-%Y %H:%M:%S"
+        )
+
+        # Save history
+        history = history or []
+
+        history.insert(0, [
+            current_time,
+            predicted_class,
+            f"{confidence:.2f}%"
+        ])
+
+        history = history[:30]
+
+        # Create report
+        report = f"""
+PATHOAI - AI PATHOLOGY REPORT
+=================================
+
+Project: AI-Based Pathology Detection
+
+Date: {current_time}
+
+Predicted Blood Cell: {predicted_class}
+
+Model Confidence: {confidence:.2f}%
+
+Model: CNN Deep Learning
+
+Dataset: BloodMNIST
+
+Image Resolution: {IMAGE_SIZE} x {IMAGE_SIZE}
+
+---------------------------------
+DISCLAIMER:
+
+This is an educational research result.
+It is NOT a medical diagnosis.
+AI predictions can be incorrect.
+Consult a qualified medical professional.
+"""
+
+        report_path = "/content/pathoai/latest_report.txt"
+
+        with open(report_path, "w") as f:
+            f.write(report)
+
+        result_text = f"""
+## 🧬 AI Analysis Complete
+
+**Predicted Blood Cell:** {predicted_class}
+
+**Model Confidence:** {confidence:.2f}%
+
+**AI Architecture:** CNN Deep Learning
+
+**Dataset:** BloodMNIST
+
+**Image Size:** {IMAGE_SIZE} × {IMAGE_SIZE}
+
+---
+
+### Medical Safety Notice
+
+This educational model cannot establish a medical diagnosis.
+Do not use its predictions for treatment decisions.
+"""
+
+        return (
+            results,
+            result_text,
+            history,
+            history,
+            report_path
+        )
+
+    except Exception as error:
+
+        return (
+            {},
+            f"Prediction Error: {str(error)}",
+            history,
+            history,
+            None
+        )
+
+
+# ============================================================
+# 9. CUSTOM DASHBOARD DESIGN
+# ============================================================
+
+CSS = """
+.gradio-container {
+    max-width: 1450px !important;
+    background: #f4f7fc !important;
+    margin: auto !important;
+}
+
+#header {
+    background: white;
+    padding: 22px;
+    border-radius: 14px;
+    border: 1px solid #e5eaf2;
+    margin-bottom: 20px;
+}
+
+#header h1 {
+    color: #2563eb;
+    font-size: 29px;
+}
+
+#header p {
+    color: #718096;
+}
+
+.stat {
+    background: white;
+    border: 1px solid #e5eaf2;
+    border-radius: 13px;
+    padding: 18px;
+    text-align: center;
+}
+
+.stat h2 {
+    color: #2563eb;
+    font-size: 26px;
+}
+
+.stat p {
+    color: #718096;
+    font-size: 13px;
+}
+
+.panel {
+    background: white;
+    border: 1px solid #e5eaf2;
+    border-radius: 13px;
+    padding: 18px;
+}
+
+#analyze {
+    background: #2563eb !important;
+    color: white !important;
+    font-weight: bold;
+}
+
+footer {
+    text-align: center;
+}
+"""
+
+# ============================================================
+# 10. GRADIO APPLICATION
+# ============================================================
+
+with gr.Blocks(
+    theme=gr.themes.Soft(
+        primary_hue="blue",
+        secondary_hue="teal"
+    ),
+    css=CSS,
+    title="PathoAI - Pathology Detection"
+) as demo:
+
+    gr.HTML("""
+    <div id="header">
+        <h1>PathoAI 🧬</h1>
+        <p>AI-Based Pathology Detection System</p>
+        <p>Educational Research Dashboard | CNN | BloodMNIST</p>
     </div>
-  </label>
+    """)
 
-  <input type="file" id="imageInput"
-    accept="image/png,image/jpeg,image/webp">
+    gr.Markdown("# Pathology Detection Dashboard")
 
-  <img id="preview" alt="Uploaded image preview">
+    gr.Markdown(
+        "Upload a blood cell image and analyze it using "
+        "your trained AI model."
+    )
 
-  <div class="field">
-    <label>Sample Category</label>
-    <select id="category">
-      <option value="Pathology">General Pathology</option>
-      <option value="Blood">Blood Sample</option>
-      <option value="Tissue">Tissue Sample</option>
-      <option value="Histopathology">Histopathology</option>
-      <option value="Research">Other Research Image</option>
-    </select>
-  </div>
+    # Dashboard statistics
 
-  <button class="btn" id="analyzeBtn" disabled onclick="analyzeImage()">
-    🔬 Analyze Image
-  </button>
+    with gr.Row():
 
-  <button class="btn secondary" onclick="resetImage()">
-    Clear Image
-  </button>
-</section>
+        gr.HTML(f"""
+        <div class="stat">
+            <h2>{len(train_data):,}</h2>
+            <p>Training Images</p>
+        </div>
+        """)
 
-<section class="card">
-  <h2>🧠 AI Analysis Result</h2>
+        gr.HTML(f"""
+        <div class="stat">
+            <h2>{len(test_data):,}</h2>
+            <p>Testing Images</p>
+        </div>
+        """)
 
-  <div class="result" id="result">
-    <div class="result-icon">🔍</div>
-    <h3>Waiting for Image</h3>
-    <p class="muted">
-      Upload an image and connect a compatible AI server.
-      The analysis result will appear here.
-    </p>
-  </div>
+        gr.HTML(f"""
+        <div class="stat">
+            <h2>{NUM_CLASSES}</h2>
+            <p>Cell Categories</p>
+        </div>
+        """)
 
-  <div class="field">
-    <label>Model Output Confidence</label>
-    <div class="confidence">
-      <div id="confidenceBar"></div>
+        gr.HTML(f"""
+        <div class="stat">
+            <h2>{test_accuracy:.1f}%</h2>
+            <p>Test Accuracy</p>
+        </div>
+        """)
+
+    gr.Markdown("---")
+
+    gr.Markdown("## 🧫 Image Analysis")
+
+    history_state = gr.State([])
+
+    with gr.Row():
+
+        with gr.Column(
+            scale=1,
+            elem_classes=["panel"]
+        ):
+
+            gr.Markdown("### Upload Pathology Image")
+
+            image_input = gr.Image(
+                type="pil",
+                label="Select Blood Cell Image",
+                height=280
+            )
+
+            analyze_btn = gr.Button(
+                "🔬 Analyze Image",
+                variant="primary",
+                elem_id="analyze"
+            )
+
+            clear_btn = gr.Button(
+                "Clear Image",
+                variant="secondary"
+            )
+
+        with gr.Column(
+            scale=1,
+            elem_classes=["panel"]
+        ):
+
+            gr.Markdown("### 🧠 AI Analysis Result")
+
+            prediction_output = gr.Label(
+                label="Predicted Blood Cell",
+                num_top_classes=NUM_CLASSES
+            )
+
+            result_output = gr.Markdown(
+                "Upload an image to start AI analysis."
+            )
+
+            report_output = gr.File(
+                label="Download Analysis Report"
+            )
+
+    analyze_btn.click(
+        fn=predict_image,
+        inputs=[
+            image_input,
+            history_state
+        ],
+        outputs=[
+            prediction_output,
+            result_output,
+            history_state,
+            history_table := gr.Dataframe(
+                headers=[
+                    "Date & Time",
+                    "Prediction",
+                    "Confidence"
+                ],
+                datatype=["str", "str", "str"],
+                label="Analysis History",
+                interactive=False
+            ),
+            report_output
+        ]
+    )
+
+    clear_btn.click(
+        fn=lambda: (None, {}, "Upload a new image.", None),
+        inputs=[],
+        outputs=[
+            image_input,
+            prediction_output,
+            result_output,
+            report_output
+        ]
+    )
+
+    gr.Markdown("---")
+
+    gr.Markdown("## 📊 Model Training History")
+
+    gr.Dataframe(
+        value=training_history,
+        headers=[
+            "Epoch",
+            "Training Accuracy",
+            "Validation Accuracy",
+            "Validation Loss"
+        ],
+        interactive=False
+    )
+
+    gr.Markdown("---")
+
+    gr.Markdown("## 🧬 Blood Cell Categories")
+
+    gr.Markdown(
+        "\n".join(
+            [f"- {name.title()}" for name in CLASS_NAMES]
+        )
+    )
+
+    gr.Markdown("---")
+
+    gr.Markdown("""
+    ## ⚙ Project Information
+
+    - Project: PathoAI
+    - Framework: PyTorch
+    - Interface: Gradio
+    - Dataset: BloodMNIST
+    - Model: Convolutional Neural Network
+    - Platform: Google Colab
+
+    **Dataset Source:** https://medmnist.com/
+
+    **GitHub Source:** https://github.com/MedMNIST/MedMNIST
+
+    **Medical Disclaimer:** This project is for educational
+    and research purposes only. It is not validated for
+    clinical diagnosis or treatment.
+    """)
+
+    gr.HTML("""
+    <div style="text-align:center;padding:20px;color:#718096">
+        <b>PathoAI © 2026</b>
+        <p>AI-Based Pathology Research Project</p>
     </div>
-    <p class="muted" id="confidenceText">No result available</p>
-  </div>
-
-  <button class="btn secondary" onclick="downloadReport()">
-    📥 Download Analysis Report
-  </button>
-</section>
-
-</div>
-
-<section class="card history" id="history">
-  <h2>📋 Analysis History</h2>
-  <div id="historyList">
-    <p class="muted">No analysis records yet.</p>
-  </div>
-</section>
-
-<section class="card" id="settings" style="margin-top:22px">
-  <h2>⚙ AI Server Settings</h2>
-  <p class="muted">
-    Enter the URL of your deployed AI backend.
-    Example: https://your-server.example.com
-  </p>
-
-  <div class="field">
-    <label>AI Backend URL</label>
-    <input id="apiUrl" type="url"
-      placeholder="https://your-server.example.com">
-  </div>
-
-  <div class="field">
-    <label>API Endpoint</label>
-    <input id="apiPath" type="text" value="/predict"
-      placeholder="/predict">
-  </div>
-
-  <button class="btn" onclick="saveSettings()">
-    Save Server Settings
-  </button>
-
-  <p class="muted" id="settingsMessage" style="margin-top:12px"></p>
-</section>
-
-<div class="notice">
-  <strong>Medical Safety Notice:</strong>
-  This project is an educational research prototype.
-  AI output is not a medical diagnosis. Do not upload
-  identifiable patient information or use predictions
-  to make treatment decisions. Consult qualified
-  medical professionals for clinical interpretation.
-</div>
-
-</main>
-</div>
-
-<footer>
-  PathoAI © 2026 | AI-Based Pathology Research Project
-  <br><br>
-  Built for Education and Research
-</footer>
-
-<script>
-const imageInput = document.getElementById("imageInput");
-const preview = document.getElementById("preview");
-const analyzeBtn = document.getElementById("analyzeBtn");
-
-let selectedFile = null;
-let lastReport = null;
-let historyItems = [];
-
-let total = 0;
-let uploaded = 0;
-
-const savedUrl = localStorage.getItem("patho_api_url") || "";
-const savedPath = localStorage.getItem("patho_api_path") || "/predict";
-
-document.getElementById("apiUrl").value = savedUrl;
-document.getElementById("apiPath").value = savedPath;
-
-function updateStats(){
-  document.getElementById("total").textContent = total;
-  document.getElementById("uploaded").textContent = uploaded;
-}
-
-imageInput.addEventListener("change", function(){
-  const file = this.files[0];
-
-  if(!file) return;
-
-  const validTypes = ["image/jpeg","image/png","image/webp"];
-
-  if(!validTypes.includes(file.type)){
-    alert("Please select a JPG, PNG or WEBP image.");
-    this.value = "";
-    return;
-  }
-
-  if(file.size > 10 * 1024 * 1024){
-    alert("Image size must be below 10 MB.");
-    this.value = "";
-    return;
-  }
-
-  selectedFile = file;
-  preview.src = URL.createObjectURL(file);
-  preview.style.display = "block";
-
-  document.querySelector(".upload").classList.add("hidden");
-  analyzeBtn.disabled = false;
-
-  uploaded++;
-  updateStats();
-
-  showMessage(
-    "Image Uploaded",
-    "Your image is ready. Connect the AI server to request an analysis."
-  );
-});
-
-function showMessage(title, message){
-  document.getElementById("result").innerHTML = `
-    <div class="result-icon">🔍</div>
-    <h3>${escapeHTML(title)}</h3>
-    <p class="muted">${escapeHTML(message)}</p>
-  `;
-}
-
-function escapeHTML(value){
-  return String(value).replace(/[&<>"']/g, c => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",
-    '"':"&quot;","'":"&#39;"
-  })[c]);
-}
-
-function saveSettings(){
-  const url = document.getElementById("apiUrl").value.trim();
-  const path = document.getElementById("apiPath").value.trim();
-
-  if(url){
-    try{
-      const parsed = new URL(url);
-      if(parsed.protocol !== "https:" && parsed.hostname !== "localhost"){
-        throw new Error();
-      }
-    }catch(e){
-      alert("Enter a valid HTTPS backend URL.");
-      return;
-    }
-  }
-
-  if(path && !path.startsWith("/")){
-    alert("API endpoint must start with /");
-    return;
-  }
-
-  localStorage.setItem("patho_api_url",url);
-  localStorage.setItem("patho_api_path",path || "/predict");
-
-  document.getElementById("settingsMessage").textContent =
-    "Settings saved successfully.";
-
-  document.getElementById("serverStatus").textContent =
-    url ? "URL Saved" : "Not Connected";
-}
-
-async function analyzeImage(){
-  if(!selectedFile){
-    alert("Please upload an image first.");
-    return;
-  }
-
-  const baseUrl = localStorage.getItem("patho_api_url");
-
-  if(!baseUrl){
-    alert("Please enter your AI Backend URL in Settings first.");
-    document.getElementById("settings").scrollIntoView({
-      behavior:"smooth"
-    });
-    return;
-  }
-
-  const path = localStorage.getItem("patho_api_path") || "/predict";
-  const endpoint = baseUrl.replace(/\/+$/,"") + path;
-
-  analyzeBtn.disabled = true;
-  analyzeBtn.textContent = "⏳ Analyzing...";
-
-  showMessage("Processing Image","Waiting for AI server response...");
-
-  try{
-    const formData = new FormData();
-    formData.append("file",selectedFile);
-    formData.append("category",document.getElementById("category").value);
-
-    const response = await fetch(endpoint,{
-      method:"POST",
-      body:formData
-    });
-
-    if(!response.ok){
-      throw new Error("Server returned HTTP " + response.status);
-    }
-
-    const data = await response.json();
-
-    // Expected backend JSON:
-    // {
-    //   "prediction":"Example model class",
-    //   "confidence":0.92,
-    //   "message":"Research model output"
-    // }
-
-    if(!data.prediction){
-      throw new Error("Invalid response: prediction field missing.");
-    }
-
-    const confidence = Number(data.confidence);
-
-    if(!Number.isFinite(confidence) ||
-       confidence < 0 || confidence > 1){
-      throw new Error("Invalid confidence value. Use a number from 0 to 1.");
-    }
-
-    const confidencePercent = (confidence * 100).toFixed(1);
-
-    lastReport = {
-      filename:selectedFile.name,
-      category:document.getElementById("category").value,
-      prediction:String(data.prediction),
-      confidence:confidencePercent,
-      message:String(data.message || "Model response received."),
-      date:new Date().toLocaleString()
-    };
-
-    displayResult(lastReport);
-
-    total++;
-    updateStats();
-
-    historyItems.unshift(lastReport);
-    renderHistory();
-
-    document.getElementById("serverStatus").textContent = "Connected";
-    document.getElementById("serverStatus").style.color = "#0d9488";
-
-  }catch(error){
-    showMessage("Connection Error",error.message +
-      " Check the server URL, endpoint and CORS settings.");
-    document.getElementById("serverStatus").textContent = "Error";
-    document.getElementById("serverStatus").style.color = "#dc2626";
-  }finally{
-    analyzeBtn.disabled = false;
-    analyzeBtn.textContent = "🔬 Analyze Image";
-  }
-}
-
-function displayResult(report){
-  document.getElementById("result").innerHTML = `
-    <div class="result-icon">🧬</div>
-    <h3>${escapeHTML(report.prediction)}</h3>
-    <p class="muted">${escapeHTML(report.message)}</p>
-    <br>
-    <p class="muted">Image: ${escapeHTML(report.filename)}</p>
-    <p class="muted">Category: ${escapeHTML(report.category)}</p>
-    <p class="muted">Model score: ${report.confidence}%</p>
-    <br>
-    <p class="muted">Research output only — not a clinical diagnosis.</p>
-  `;
-
-  document.getElementById("confidenceBar").style.width =
-    report.confidence + "%";
-
-  document.getElementById("confidenceText").textContent =
-    report.confidence + "% model confidence";
-}
-
-function renderHistory(){
-  const list = document.getElementById("historyList");
-
-  list.innerHTML = "";
-
-  historyItems.forEach(item => {
-    const row = document.createElement("div");
-    row.className = "history-row";
-
-    const left = document.createElement("span");
-    const right = document.createElement("span");
-
-    left.textContent = item.filename + " — " + item.prediction;
-    right.textContent = item.date;
-    right.className = "tag";
-
-    row.append(left,right);
-    list.appendChild(row);
-  });
-}
-
-function downloadReport(){
-  if(!lastReport){
-    alert("No analysis report available yet.");
-    return;
-  }
-
-  const text = [
-    "PATHOAI - RESEARCH ANALYSIS REPORT",
-    "----------------------------------",
-    "Image: " + lastReport.filename,
-    "Category: " + lastReport.category,
-    "Model Output: " + lastReport.prediction,
-    "Model Confidence: " + lastReport.confidence + "%",
-    "Message: " + lastReport.message,
-    "Date: " + lastReport.date,
-    "",
-    "DISCLAIMER: Educational research output only.",
-    "Not a medical diagnosis."
-  ].join("\n");
-
-  const blob = new Blob([text],{type:"text/plain"});
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "PathoAI-Report.txt";
-  a.click();
-
-  URL.revokeObjectURL(url);
-}
-
-function resetImage(){
-  selectedFile = null;
-  imageInput.value = "";
-  preview.src = "";
-  preview.style.display = "none";
-
-  document.querySelector(".upload").classList.remove("hidden");
-  analyzeBtn.disabled = true;
-
-  document.getElementById("confidenceBar").style.width = "0";
-  document.getElementById("confidenceText").textContent =
-    "No result available";
-
-  lastReport = null;
-
-  showMessage("Waiting for Image","Upload your next research image.");
-}
-
-updateStats();
-
-if(savedUrl){
-  document.getElementById("serverStatus").textContent = "URL Saved";
-}
-</script>
-
-</body>
-</html>
+    """)
+
+# ============================================================
+# 11. START PUBLIC LIVE PROJECT
+# ============================================================
+
+print("\n" + "=" * 55)
+print("PATHOAI PROJECT READY!")
+print("=" * 55)
+
+print("Starting Gradio interface...")
+
+demo.launch(
+    share=True,
+    debug=False,
+    show_error=True
+)
